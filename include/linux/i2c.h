@@ -538,6 +538,10 @@ struct i2c_adapter {
 
 	struct i2c_bus_recovery_info *bus_recovery_info;
 	const struct i2c_adapter_quirks *quirks;
+
+	void (*lock_bus)(struct i2c_adapter *, int flags);
+	int (*trylock_bus)(struct i2c_adapter *, int flags);
+	void (*unlock_bus)(struct i2c_adapter *, int flags);
 };
 #define to_i2c_adapter(d) container_of(d, struct i2c_adapter, dev)
 
@@ -567,8 +571,28 @@ i2c_parent_is_i2c_adapter(const struct i2c_adapter *adapter)
 int i2c_for_each_dev(void *data, int (*fn)(struct device *, void *));
 
 /* Adapter locking functions, exported for shared pin cases */
-void i2c_lock_adapter(struct i2c_adapter *);
-void i2c_unlock_adapter(struct i2c_adapter *);
+#define I2C_LOCK_ADAPTER 0x01
+#define I2C_LOCK_SEGMENT 0x02
+static inline void
+i2c_lock_bus(struct i2c_adapter *adapter, int flags)
+{
+	adapter->lock_bus(adapter, flags);
+}
+static inline void
+i2c_unlock_bus(struct i2c_adapter *adapter, int flags)
+{
+	adapter->unlock_bus(adapter, flags);
+}
+static inline void
+i2c_lock_adapter(struct i2c_adapter *adapter)
+{
+	i2c_lock_bus(adapter, I2C_LOCK_ADAPTER);
+}
+static inline void
+i2c_unlock_adapter(struct i2c_adapter *adapter)
+{
+	i2c_unlock_bus(adapter, I2C_LOCK_ADAPTER);
+}
 
 /*flags for the client struct: */
 #define I2C_CLIENT_PEC		0x04	/* Use Packet Error Checking */
