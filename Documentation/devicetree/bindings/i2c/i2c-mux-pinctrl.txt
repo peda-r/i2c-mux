@@ -23,6 +23,10 @@ Required properties:
 - i2c-parent: The phandle of the I2C bus that this multiplexer's master-side
   port is connected to.
 
+Optional properties:
+- i2c-controlled: The muxed I2C bus is also used to control all the pinctrl
+  pins used for muxing.
+
 Also required are:
 
 * Standard pinctrl properties that specify the pin mux state for each child

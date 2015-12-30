@@ -28,6 +28,8 @@ Required properties:
 Optional properties:
 - idle-state: value to set the muxer to when idle. When no value is
   given, it defaults to the last value used.
+- i2c-controlled: The muxed I2C bus is also used to control all the gpios
+  used for muxing.
 
 For each i2c child node, an I2C child bus will be created. They will
 be numbered based on their order in the device tree.

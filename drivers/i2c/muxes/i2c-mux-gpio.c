@@ -68,6 +68,8 @@ static int i2c_mux_gpio_probe_dt(struct gpiomux *mux,
 	if (!np)
 		return -ENODEV;
 
+	mux->data.i2c_controlled = of_property_read_bool(np,
+							 "i2c-controlled");
 	adapter_np = of_parse_phandle(np, "i2c-parent", 0);
 	if (!adapter_np) {
 		dev_err(&pdev->dev, "Cannot parse i2c-parent\n");
@@ -177,6 +179,7 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	if (!parent)
 		return -EPROBE_DEFER;
 
+	muxc->i2c_controlled = mux->data.i2c_controlled;
 	muxc->parent = parent;
 	muxc->select = i2c_mux_gpio_select;
 	mux->gpio_base = gpio_base;

@@ -27,6 +27,7 @@
  * @gpios: Array of GPIO numbers used to control MUX
  * @n_gpios: Number of GPIOs used to control MUX
  * @idle: Bitmask to write to MUX when idle or GPIO_I2CMUX_NO_IDLE if not used
+ * @i2c_controlled: Set if the parent i2c bus is used to control the gpio.
  */
 struct i2c_mux_gpio_platform_data {
 	int parent;
@@ -38,6 +39,7 @@ struct i2c_mux_gpio_platform_data {
 	const unsigned *gpios;
 	int n_gpios;
 	unsigned idle;
+	bool i2c_controlled;
 };
 
 #endif /* _LINUX_I2C_MUX_GPIO_H */

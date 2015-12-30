@@ -96,6 +96,8 @@ static int i2c_mux_pinctrl_parse_dt(struct i2c_mux_pinctrl *mux,
 		}
 	}
 
+	mux->pdata->i2c_controlled = of_property_read_bool(np,
+							   "i2c-controlled");
 	adapter_np = of_parse_phandle(np, "i2c-parent", 0);
 	if (!adapter_np) {
 		dev_err(muxc->dev, "Cannot parse i2c-parent\n");
@@ -193,6 +195,7 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 	}
 	muxc->select = i2c_mux_pinctrl_select;
 
+	muxc->i2c_controlled = mux->pdata->i2c_controlled;
 	muxc->parent = i2c_get_adapter(mux->pdata->parent_bus_num);
 	if (!muxc->parent) {
 		dev_err(&pdev->dev, "Parent adapter (%d) not found\n",

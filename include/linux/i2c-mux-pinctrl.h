@@ -29,6 +29,7 @@
  * @pinctrl_state_idle: The pinctrl state to select when no child bus is being
  *	accessed. If NULL, the most recently used pinctrl state will be left
  *	selected.
+ * @i2c_controlled: Set if the parent i2c bus is used to control the pinctrl.
  */
 struct i2c_mux_pinctrl_platform_data {
 	int parent_bus_num;
@@ -36,6 +37,7 @@ struct i2c_mux_pinctrl_platform_data {
 	int bus_count;
 	const char **pinctrl_states;
 	const char *pinctrl_state_idle;
+	bool i2c_controlled;
 };
 
 #endif
