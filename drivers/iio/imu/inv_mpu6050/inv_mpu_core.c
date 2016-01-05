@@ -850,13 +850,9 @@ static int inv_mpu_probe(struct i2c_client *client,
 	st->muxc->select = inv_mpu6050_select_bypass;
 	st->muxc->deselect = inv_mpu6050_deselect_bypass;
 
-	st->mux_adapter = i2c_add_mux_adapter(st->muxc,
-					      &client->dev,
-					      0, 0, 0);
-	if (!st->mux_adapter) {
-		result = -ENODEV;
+	result = i2c_add_mux_adapter(st->muxc, &client->dev, 0, 0, 0);
+	if (result)
 		goto out_unreg_device;
-	}
 
 	result = inv_mpu_acpi_create_mux_client(st);
 	if (result)
@@ -865,7 +861,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	return 0;
 
 out_del_mux:
-	i2c_del_mux_adapter(st->mux_adapter);
+	i2c_del_mux_adapters(st->muxc);
 out_unreg_device:
 	iio_device_unregister(indio_dev);
 out_remove_trigger:
@@ -881,7 +877,7 @@ static int inv_mpu_remove(struct i2c_client *client)
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 
 	inv_mpu_acpi_delete_mux_client(st);
-	i2c_del_mux_adapter(st->mux_adapter);
+	i2c_del_mux_adapters(st->muxc);
 	iio_device_unregister(indio_dev);
 	inv_mpu6050_remove_trigger(st);
 	iio_triggered_buffer_cleanup(indio_dev);

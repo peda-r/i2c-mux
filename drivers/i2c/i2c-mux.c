@@ -99,6 +99,29 @@ static unsigned int i2c_mux_parent_classes(struct i2c_adapter *parent)
 	return class;
 }
 
+int i2c_mux_reserve_adapters(struct i2c_mux_core *muxc, int adapters)
+{
+	struct i2c_adapter **adapter;
+
+	if (adapters <= muxc->max_adapters)
+		return 0;
+
+	adapter = devm_kmalloc_array(muxc->dev,
+				     adapters, sizeof(*adapter),
+				     GFP_KERNEL);
+	if (!adapter)
+		return -ENOMEM;
+
+	memcpy(adapter, muxc->adapter,
+	       muxc->max_adapters * sizeof(*adapter));
+
+	devm_kfree(muxc->dev, muxc->adapter);
+	muxc->adapter = adapter;
+	muxc->max_adapters = adapters;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(i2c_mux_reserve_adapters);
+
 struct i2c_mux_core *i2c_mux_alloc(struct device *dev, int sizeof_priv)
 {
 	struct i2c_mux_core *muxc;
@@ -113,19 +136,29 @@ struct i2c_mux_core *i2c_mux_alloc(struct device *dev, int sizeof_priv)
 }
 EXPORT_SYMBOL_GPL(i2c_mux_alloc);
 
-struct i2c_adapter *i2c_add_mux_adapter(struct i2c_mux_core *muxc,
-					struct device *mux_dev,
-					u32 force_nr, u32 chan_id,
-					unsigned int class)
+int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
+			struct device *mux_dev,
+			u32 force_nr, u32 chan_id,
+			unsigned int class)
 {
 	struct i2c_adapter *parent = muxc->parent;
 	struct i2c_mux_priv *priv;
 	char symlink_name[20];
 	int ret;
 
+	if (muxc->adapters >= muxc->max_adapters) {
+		int new_max = 2 * muxc->max_adapters;
+
+		if (!new_max)
+			new_max = 1;
+		ret = i2c_mux_reserve_adapters(muxc, new_max);
+		if (ret)
+			return ret;
+	}
+
 	priv = kzalloc(sizeof(struct i2c_mux_priv), GFP_KERNEL);
 	if (!priv)
-		return NULL;
+		return -ENOMEM;
 
 	/* Set up private adapter data */
 	priv->muxc = muxc;
@@ -197,7 +230,7 @@ struct i2c_adapter *i2c_add_mux_adapter(struct i2c_mux_core *muxc,
 			"failed to add mux-adapter (error=%d)\n",
 			ret);
 		kfree(priv);
-		return NULL;
+		return ret;
 	}
 
 	WARN(sysfs_create_link(&priv->adap.dev.kobj, &mux_dev->kobj, "mux_device"),
@@ -209,23 +242,31 @@ struct i2c_adapter *i2c_add_mux_adapter(struct i2c_mux_core *muxc,
 	dev_info(&parent->dev, "Added multiplexed i2c bus %d\n",
 		 i2c_adapter_id(&priv->adap));
 
-	return &priv->adap;
+	muxc->adapter[muxc->adapters++] = &priv->adap;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(i2c_add_mux_adapter);
 
-void i2c_del_mux_adapter(struct i2c_adapter *adap)
+void i2c_del_mux_adapters(struct i2c_mux_core *muxc)
 {
-	struct i2c_mux_priv *priv = adap->algo_data;
 	char symlink_name[20];
 
-	snprintf(symlink_name, sizeof(symlink_name), "channel-%u", priv->chan_id);
-	sysfs_remove_link(&priv->mux_dev->kobj, symlink_name);
+	while (muxc->adapters) {
+		struct i2c_adapter *adap = muxc->adapter[--muxc->adapters];
+		struct i2c_mux_priv *priv = adap->algo_data;
 
-	sysfs_remove_link(&priv->adap.dev.kobj, "mux_device");
-	i2c_del_adapter(adap);
-	kfree(priv);
+		muxc->adapter[muxc->adapters] = NULL;
+
+		snprintf(symlink_name, sizeof(symlink_name),
+			 "channel-%u", priv->chan_id);
+		sysfs_remove_link(&priv->mux_dev->kobj, symlink_name);
+
+		sysfs_remove_link(&priv->adap.dev.kobj, "mux_device");
+		i2c_del_adapter(adap);
+		kfree(priv);
+	}
 }
-EXPORT_SYMBOL_GPL(i2c_del_mux_adapter);
+EXPORT_SYMBOL_GPL(i2c_del_mux_adapters);
 
 MODULE_AUTHOR("Rodolfo Giometti <giometti@linux.it>");
 MODULE_DESCRIPTION("I2C driver for multiplexed I2C busses");

@@ -30,7 +30,6 @@ struct rtl2830_dev {
 	struct i2c_client *client;
 	struct regmap *regmap;
 	struct i2c_mux_core *muxc;
-	struct i2c_adapter *adapter;
 	struct dvb_frontend fe;
 	bool sleeping;
 	unsigned long filters;

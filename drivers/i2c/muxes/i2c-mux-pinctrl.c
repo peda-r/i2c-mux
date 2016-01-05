@@ -31,7 +31,6 @@ struct i2c_mux_pinctrl {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state **states;
 	struct pinctrl_state *state_idle;
-	struct i2c_adapter **busses;
 };
 
 static int i2c_mux_pinctrl_select(struct i2c_mux_core *muxc, u32 chan)
@@ -163,14 +162,9 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	mux->busses = devm_kzalloc(&pdev->dev,
-				   sizeof(*mux->busses) * mux->pdata->bus_count,
-				   GFP_KERNEL);
-	if (!mux->busses) {
-		dev_err(&pdev->dev, "Cannot allocate busses\n");
-		ret = -ENOMEM;
+	ret = i2c_mux_reserve_adapters(muxc, mux->pdata->bus_count);
+	if (ret)
 		goto err;
-	}
 
 	mux->pinctrl = devm_pinctrl_get(&pdev->dev);
 	if (IS_ERR(mux->pinctrl)) {
@@ -218,10 +212,9 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 		u32 bus = mux->pdata->base_bus_num ?
 				(mux->pdata->base_bus_num + i) : 0;
 
-		mux->busses[i] = i2c_add_mux_adapter(muxc, &pdev->dev,
-						     bus, i, 0);
-		if (!mux->busses[i]) {
-			ret = -ENODEV;
+		ret = i2c_add_mux_adapter(muxc, &pdev->dev,
+					  bus, i, 0);
+		if (ret) {
 			dev_err(&pdev->dev, "Failed to add adapter %d\n", i);
 			goto err_del_adapter;
 		}
@@ -230,8 +223,7 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 	return 0;
 
 err_del_adapter:
-	for (; i > 0; i--)
-		i2c_del_mux_adapter(mux->busses[i - 1]);
+	i2c_del_mux_adapters(muxc);
 	i2c_put_adapter(muxc->parent);
 err:
 	return ret;
@@ -240,14 +232,9 @@ err:
 static int i2c_mux_pinctrl_remove(struct platform_device *pdev)
 {
 	struct i2c_mux_core *muxc = platform_get_drvdata(pdev);
-	struct i2c_mux_pinctrl *mux = i2c_mux_priv(muxc);
-	int i;
 
-	for (i = 0; i < mux->pdata->bus_count; i++)
-		i2c_del_mux_adapter(mux->busses[i]);
-
+	i2c_del_mux_adapters(muxc);
 	i2c_put_adapter(muxc->parent);
-
 	return 0;
 }
 

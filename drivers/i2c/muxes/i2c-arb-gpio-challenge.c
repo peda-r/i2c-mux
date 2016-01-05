@@ -42,7 +42,6 @@
  */
 
 struct i2c_arbitrator_data {
-	struct i2c_adapter *child;
 	int our_gpio;
 	int our_gpio_release;
 	int their_gpio;
@@ -205,10 +204,9 @@ static int i2c_arbitrator_probe(struct platform_device *pdev)
 	}
 
 	/* Actually add the mux adapter */
-	arb->child = i2c_add_mux_adapter(muxc, dev, 0, 0, 0);
-	if (!arb->child) {
+	ret = i2c_add_mux_adapter(muxc, dev, 0, 0, 0);
+	if (ret) {
 		dev_err(dev, "Failed to add adapter\n");
-		ret = -ENODEV;
 		i2c_put_adapter(muxc->parent);
 	}
 
@@ -218,11 +216,9 @@ static int i2c_arbitrator_probe(struct platform_device *pdev)
 static int i2c_arbitrator_remove(struct platform_device *pdev)
 {
 	struct i2c_mux_core *muxc = platform_get_drvdata(pdev);
-	struct i2c_arbitrator_data *arb = i2c_mux_priv(muxc);
 
-	i2c_del_mux_adapter(arb->child);
+	i2c_del_mux_adapters(muxc);
 	i2c_put_adapter(muxc->parent);
-
 	return 0;
 }
 

@@ -18,7 +18,6 @@
 #include <linux/of_gpio.h>
 
 struct gpiomux {
-	struct i2c_adapter **adap; /* child busses */
 	struct i2c_mux_gpio_platform_data data;
 	unsigned gpio_base;
 };
@@ -182,14 +181,9 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	muxc->select = i2c_mux_gpio_select;
 	mux->gpio_base = gpio_base;
 
-	mux->adap = devm_kzalloc(&pdev->dev,
-				 sizeof(*mux->adap) * mux->data.n_values,
-				 GFP_KERNEL);
-	if (!mux->adap) {
-		dev_err(&pdev->dev, "Cannot allocate i2c_adapter structure");
-		ret = -ENOMEM;
+	ret = i2c_mux_reserve_adapters(muxc, mux->data.n_values);
+	if (ret)
 		goto alloc_failed;
-	}
 
 	if (mux->data.idle != I2C_MUX_GPIO_NO_IDLE) {
 		initial_state = mux->data.idle;
@@ -222,10 +216,9 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 		u32 nr = mux->data.base_nr ? (mux->data.base_nr + i) : 0;
 		unsigned int class = mux->data.classes ? mux->data.classes[i] : 0;
 
-		mux->adap[i] = i2c_add_mux_adapter(muxc, &pdev->dev, nr,
-						   mux->data.values[i], class);
-		if (!mux->adap[i]) {
-			ret = -ENODEV;
+		ret = i2c_add_mux_adapter(muxc, &pdev->dev, nr,
+					  mux->data.values[i], class);
+		if (ret) {
 			dev_err(&pdev->dev, "Failed to add adapter %d\n", i);
 			goto add_adapter_failed;
 		}
@@ -237,8 +230,7 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	return 0;
 
 add_adapter_failed:
-	for (; i > 0; i--)
-		i2c_del_mux_adapter(mux->adap[i - 1]);
+	i2c_del_mux_adapters(muxc);
 	i = mux->data.n_gpios;
 err_request_gpio:
 	for (; i > 0; i--)
@@ -255,8 +247,7 @@ static int i2c_mux_gpio_remove(struct platform_device *pdev)
 	struct gpiomux *mux = i2c_mux_priv(muxc);
 	int i;
 
-	for (i = 0; i < mux->data.n_values; i++)
-		i2c_del_mux_adapter(mux->adap[i]);
+	i2c_del_mux_adapters(muxc);
 
 	for (i = 0; i < mux->data.n_gpios; i++)
 		gpio_free(mux->gpio_base + mux->data.gpios[i]);
