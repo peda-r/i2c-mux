@@ -56,7 +56,6 @@ int i2c_mux_reserve_adapters(struct i2c_mux_core *muxc, int adapters);
  * mux control.
  */
 int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
-			struct device *mux_dev,
 			u32 force_nr, u32 chan_id,
 			unsigned int class);
 

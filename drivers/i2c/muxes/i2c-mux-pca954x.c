@@ -256,8 +256,7 @@ static int pca954x_probe(struct i2c_client *client,
 					   || idle_disconnect_dt) << num;
 		}
 
-		ret = i2c_add_mux_adapter(muxc, &client->dev,
-					  force, num, class);
+		ret = i2c_add_mux_adapter(muxc, force, num, class);
 
 		if (ret) {
 			dev_err(&client->dev,

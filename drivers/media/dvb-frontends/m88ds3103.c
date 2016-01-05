@@ -1476,7 +1476,7 @@ static int m88ds3103_probe(struct i2c_client *client,
 	dev->muxc->select = m88ds3103_select;
 
 	/* create mux i2c adapter for tuner */
-	ret = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
+	ret = i2c_add_mux_adapter(dev->muxc, 0, 0, 0);
 	if (ret)
 		goto err_kfree;
 

@@ -874,7 +874,7 @@ static int rtl2830_probe(struct i2c_client *client,
 	dev->muxc->select = rtl2830_select;
 
 	/* create muxed i2c adapter for tuner */
-	ret = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
+	ret = i2c_add_mux_adapter(dev->muxc, 0, 0, 0);
 	if (ret)
 		goto err_regmap_exit;
 
