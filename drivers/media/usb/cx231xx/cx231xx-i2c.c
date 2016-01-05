@@ -565,13 +565,22 @@ static int cx231xx_i2c_mux_select(struct i2c_adapter *adap,
 	return cx231xx_enable_i2c_port_3(dev, chan_id);
 }
 
+int cx231xx_i2c_mux_create(struct cx231xx *dev)
+{
+	dev->muxc = i2c_mux_alloc(dev->dev, 0);
+	if (!dev->muxc)
+		return -ENOMEM;
+	dev->muxc->priv = dev;
+	dev->muxc->parent = &dev->i2c_bus[1].i2c_adap;
+	return 0;
+}
+
 int cx231xx_i2c_mux_register(struct cx231xx *dev, int mux_no)
 {
-	struct i2c_adapter *i2c_parent = &dev->i2c_bus[1].i2c_adap;
 	/* what is the correct mux_dev? */
 	struct device *mux_dev = dev->dev;
 
-	dev->i2c_mux_adap[mux_no] = i2c_add_mux_adapter(i2c_parent,
+	dev->i2c_mux_adap[mux_no] = i2c_add_mux_adapter(dev->muxc,
 				mux_dev,
 				dev /* mux_priv */,
 				0,
