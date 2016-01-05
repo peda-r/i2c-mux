@@ -42,7 +42,6 @@
  */
 
 struct i2c_arbitrator_data {
-	struct i2c_adapter *parent;
 	struct i2c_adapter *child;
 	int our_gpio;
 	int our_gpio_release;
@@ -119,6 +118,7 @@ static int i2c_arbitrator_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
 	struct device_node *parent_np;
+	struct i2c_mux_core *muxc;
 	struct i2c_arbitrator_data *arb;
 	enum of_gpio_flags gpio_flags;
 	unsigned long out_init;
@@ -134,13 +134,12 @@ static int i2c_arbitrator_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	arb = devm_kzalloc(dev, sizeof(*arb), GFP_KERNEL);
-	if (!arb) {
-		dev_err(dev, "Cannot allocate i2c_arbitrator_data\n");
+	muxc = i2c_mux_alloc(dev, sizeof(*arb));
+	if (!muxc)
 		return -ENOMEM;
-	}
-	platform_set_drvdata(pdev, arb);
+	arb = i2c_mux_priv(muxc);
 
+	platform_set_drvdata(pdev, muxc);
 	/* Request GPIOs */
 	ret = of_get_named_gpio_flags(np, "our-claim-gpio", 0, &gpio_flags);
 	if (!gpio_is_valid(ret)) {
@@ -196,21 +195,21 @@ static int i2c_arbitrator_probe(struct platform_device *pdev)
 		dev_err(dev, "Cannot parse i2c-parent\n");
 		return -EINVAL;
 	}
-	arb->parent = of_get_i2c_adapter_by_node(parent_np);
+	muxc->parent = of_find_i2c_adapter_by_node(parent_np);
 	of_node_put(parent_np);
-	if (!arb->parent) {
+	if (!muxc->parent) {
 		dev_err(dev, "Cannot find parent bus\n");
 		return -EPROBE_DEFER;
 	}
 
 	/* Actually add the mux adapter */
-	arb->child = i2c_add_mux_adapter(arb->parent, dev, arb, 0, 0, 0,
+	arb->child = i2c_add_mux_adapter(muxc, dev, arb, 0, 0, 0,
 					 i2c_arbitrator_select,
 					 i2c_arbitrator_deselect);
 	if (!arb->child) {
 		dev_err(dev, "Failed to add adapter\n");
 		ret = -ENODEV;
-		i2c_put_adapter(arb->parent);
+		i2c_put_adapter(muxc->parent);
 	}
 
 	return ret;
@@ -218,10 +217,11 @@ static int i2c_arbitrator_probe(struct platform_device *pdev)
 
 static int i2c_arbitrator_remove(struct platform_device *pdev)
 {
-	struct i2c_arbitrator_data *arb = platform_get_drvdata(pdev);
+	struct i2c_mux_core *muxc = platform_get_drvdata(pdev);
+	struct i2c_arbitrator_data *arb = i2c_mux_priv(muxc);
 
 	i2c_del_mux_adapter(arb->child);
-	i2c_put_adapter(arb->parent);
+	i2c_put_adapter(muxc->parent);
 
 	return 0;
 }

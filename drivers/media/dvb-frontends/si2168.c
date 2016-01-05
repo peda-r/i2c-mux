@@ -708,8 +708,16 @@ static int si2168_probe(struct i2c_client *client,
 		goto err;
 	}
 
+	dev->muxc = i2c_mux_alloc(&client->dev, 0);
+	if (!dev->muxc) {
+		ret = -ENOMEM;
+		goto err_kfree;
+	}
+	dev->muxc->priv = client;
+	dev->muxc->parent = client->adapter;
+
 	/* create mux i2c adapter for tuner */
-	dev->adapter = i2c_add_mux_adapter(client->adapter, &client->dev,
+	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev,
 			client, 0, 0, 0, si2168_select, si2168_deselect);
 	if (dev->adapter == NULL) {
 		ret = -ENODEV;

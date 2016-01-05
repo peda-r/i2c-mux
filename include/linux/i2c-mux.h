@@ -27,13 +27,25 @@
 
 #ifdef __KERNEL__
 
+struct i2c_mux_core {
+	struct i2c_adapter *parent;
+	void *priv;
+};
+
+struct i2c_mux_core *i2c_mux_alloc(struct device *dev, int sizeof_priv);
+
+static inline void *i2c_mux_priv(struct i2c_mux_core *muxc)
+{
+	return muxc->priv;
+}
+
 /*
  * Called to create a i2c bus on a multiplexed bus segment.
  * The mux_dev and chan_id parameters are passed to the select
  * and deselect callback functions to perform hardware-specific
  * mux control.
  */
-struct i2c_adapter *i2c_add_mux_adapter(struct i2c_adapter *parent,
+struct i2c_adapter *i2c_add_mux_adapter(struct i2c_mux_core *muxc,
 				struct device *mux_dev,
 				void *mux_priv, u32 force_nr, u32 chan_id,
 				unsigned int class,

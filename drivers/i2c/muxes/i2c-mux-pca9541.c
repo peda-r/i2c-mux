@@ -73,6 +73,7 @@
 #define SELECT_DELAY_LONG	1000
 
 struct pca9541 {
+	struct i2c_client *client;
 	struct i2c_adapter *mux_adap;
 	unsigned long select_timeout;
 	unsigned long arb_timeout;
@@ -217,7 +218,8 @@ static const u8 pca9541_control[16] = {
  */
 static int pca9541_arbitrate(struct i2c_client *client)
 {
-	struct pca9541 *data = i2c_get_clientdata(client);
+	struct i2c_mux_core *muxc = i2c_get_clientdata(client);
+	struct pca9541 *data = i2c_mux_priv(muxc);
 	int reg;
 
 	reg = pca9541_reg_read(client, PCA9541_CONTROL);
@@ -324,20 +326,22 @@ static int pca9541_probe(struct i2c_client *client,
 {
 	struct i2c_adapter *adap = client->adapter;
 	struct pca954x_platform_data *pdata = dev_get_platdata(&client->dev);
+	struct i2c_mux_core *muxc;
 	struct pca9541 *data;
 	int force;
-	int ret = -ENODEV;
 
 	if (!i2c_check_functionality(adap, I2C_FUNC_SMBUS_BYTE_DATA))
-		goto err;
+		return -ENODEV;
 
-	data = kzalloc(sizeof(struct pca9541), GFP_KERNEL);
-	if (!data) {
-		ret = -ENOMEM;
-		goto err;
-	}
+	muxc = i2c_mux_alloc(&client->dev, sizeof(*data));
+	if (!muxc)
+		return -ENOMEM;
+	data = i2c_mux_priv(muxc);
 
-	i2c_set_clientdata(client, data);
+	i2c_set_clientdata(client, muxc);
+
+	data->client = client;
+	muxc->parent = adap;
 
 	/*
 	 * I2C accesses are unprotected here.
@@ -352,34 +356,29 @@ static int pca9541_probe(struct i2c_client *client,
 	force = 0;
 	if (pdata)
 		force = pdata->modes[0].adap_id;
-	data->mux_adap = i2c_add_mux_adapter(adap, &client->dev, client,
+	data->mux_adap = i2c_add_mux_adapter(muxc, &client->dev, client,
 					     force, 0, 0,
 					     pca9541_select_chan,
 					     pca9541_release_chan);
 
 	if (data->mux_adap == NULL) {
 		dev_err(&client->dev, "failed to register master selector\n");
-		goto exit_free;
+		return -ENODEV;
 	}
 
 	dev_info(&client->dev, "registered master selector for I2C %s\n",
 		 client->name);
 
 	return 0;
-
-exit_free:
-	kfree(data);
-err:
-	return ret;
 }
 
 static int pca9541_remove(struct i2c_client *client)
 {
-	struct pca9541 *data = i2c_get_clientdata(client);
+	struct i2c_mux_core *muxc = i2c_get_clientdata(client);
+	struct pca9541 *data = i2c_mux_priv(muxc);
 
 	i2c_del_mux_adapter(data->mux_adap);
 
-	kfree(data);
 	return 0;
 }
 

@@ -31,7 +31,6 @@ struct i2c_mux_pinctrl {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state **states;
 	struct pinctrl_state *state_idle;
-	struct i2c_adapter *parent;
 	struct i2c_adapter **busses;
 };
 
@@ -131,17 +130,18 @@ static inline int i2c_mux_pinctrl_parse_dt(struct i2c_mux_pinctrl *mux,
 
 static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 {
+	struct i2c_mux_core *muxc;
 	struct i2c_mux_pinctrl *mux;
 	int (*deselect)(struct i2c_adapter *, void *, u32);
 	int i, ret;
 
-	mux = devm_kzalloc(&pdev->dev, sizeof(*mux), GFP_KERNEL);
-	if (!mux) {
-		dev_err(&pdev->dev, "Cannot allocate i2c_mux_pinctrl\n");
+	muxc = i2c_mux_alloc(&pdev->dev, sizeof(*mux));
+	if (!muxc) {
 		ret = -ENOMEM;
 		goto err;
 	}
-	platform_set_drvdata(pdev, mux);
+	mux = i2c_mux_priv(muxc);
+	platform_set_drvdata(pdev, muxc);
 
 	mux->dev = &pdev->dev;
 
@@ -208,8 +208,8 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 		deselect = NULL;
 	}
 
-	mux->parent = i2c_get_adapter(mux->pdata->parent_bus_num);
-	if (!mux->parent) {
+	muxc->parent = i2c_get_adapter(mux->pdata->parent_bus_num);
+	if (!muxc->parent) {
 		dev_err(&pdev->dev, "Parent adapter (%d) not found\n",
 			mux->pdata->parent_bus_num);
 		ret = -EPROBE_DEFER;
@@ -220,7 +220,7 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 		u32 bus = mux->pdata->base_bus_num ?
 				(mux->pdata->base_bus_num + i) : 0;
 
-		mux->busses[i] = i2c_add_mux_adapter(mux->parent, &pdev->dev,
+		mux->busses[i] = i2c_add_mux_adapter(muxc, &pdev->dev,
 						     mux, bus, i, 0,
 						     i2c_mux_pinctrl_select,
 						     deselect);
@@ -236,20 +236,21 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 err_del_adapter:
 	for (; i > 0; i--)
 		i2c_del_mux_adapter(mux->busses[i - 1]);
-	i2c_put_adapter(mux->parent);
+	i2c_put_adapter(muxc->parent);
 err:
 	return ret;
 }
 
 static int i2c_mux_pinctrl_remove(struct platform_device *pdev)
 {
-	struct i2c_mux_pinctrl *mux = platform_get_drvdata(pdev);
+	struct i2c_mux_core *muxc = platform_get_drvdata(pdev);
+	struct i2c_mux_pinctrl *mux = i2c_mux_priv(muxc);
 	int i;
 
 	for (i = 0; i < mux->pdata->bus_count; i++)
 		i2c_del_mux_adapter(mux->busses[i]);
 
-	i2c_put_adapter(mux->parent);
+	i2c_put_adapter(muxc->parent);
 
 	return 0;
 }

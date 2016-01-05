@@ -864,8 +864,16 @@ static int rtl2830_probe(struct i2c_client *client,
 	if (ret)
 		goto err_regmap_exit;
 
+	dev->muxc = i2c_mux_alloc(&client->dev, 0);
+	if (!dev->muxc) {
+		ret = -ENOMEM;
+		goto err_regmap_exit;
+	}
+	dev->muxc->priv = client;
+	dev->muxc->parent = client->adapter;
+
 	/* create muxed i2c adapter for tuner */
-	dev->adapter = i2c_add_mux_adapter(client->adapter, &client->dev,
+	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev,
 			client, 0, 0, 0, rtl2830_select, NULL);
 	if (dev->adapter == NULL) {
 		ret = -ENODEV;

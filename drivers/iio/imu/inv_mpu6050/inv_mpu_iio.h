@@ -120,6 +120,7 @@ struct inv_mpu6050_state {
 	enum   inv_devices chip_type;
 	spinlock_t time_stamp_lock;
 	struct i2c_client *client;
+	struct i2c_mux_core *muxc;
 	struct i2c_adapter *mux_adapter;
 	struct i2c_client *mux_client;
 	unsigned int powerup_count;

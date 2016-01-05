@@ -36,6 +36,7 @@ struct rtl2832_dev {
 	struct mutex regmap_mutex;
 	struct regmap_config regmap_config;
 	struct regmap *regmap;
+	struct i2c_mux_core *muxc;
 	struct i2c_adapter *i2c_adapter_tuner;
 	struct dvb_frontend fe;
 	struct delayed_work stat_work;

@@ -1261,8 +1261,16 @@ static int rtl2832_probe(struct i2c_client *client,
 	if (ret)
 		goto err_regmap_exit;
 
+	dev->muxc = i2c_mux_alloc(&client->dev, 0);
+	if (!dev->muxc) {
+		ret = -ENOMEM;
+		goto err_regmap_exit;
+	}
+	dev->muxc->priv = dev;
+	dev->muxc->parent = i2c;
+
 	/* create muxed i2c adapter for demod tuner bus */
-	dev->i2c_adapter_tuner = i2c_add_mux_adapter(i2c, &i2c->dev, dev,
+	dev->i2c_adapter_tuner = i2c_add_mux_adapter(dev->muxc, &i2c->dev, dev,
 			0, 0, 0, rtl2832_select, rtl2832_deselect);
 	if (dev->i2c_adapter_tuner == NULL) {
 		ret = -ENODEV;

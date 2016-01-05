@@ -42,6 +42,7 @@ struct m88ds3103_dev {
 	enum fe_status fe_status;
 	u32 dvbv3_ber; /* for old DVBv3 API read_ber */
 	bool warm; /* FW running */
+	struct i2c_mux_core *muxc;
 	struct i2c_adapter *i2c_adapter;
 	/* auto detect chip id to do different config */
 	u8 chip_id;

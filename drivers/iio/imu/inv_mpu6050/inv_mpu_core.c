@@ -842,7 +842,15 @@ static int inv_mpu_probe(struct i2c_client *client,
 		goto out_remove_trigger;
 	}
 
-	st->mux_adapter = i2c_add_mux_adapter(client->adapter,
+	st->muxc = i2c_mux_alloc(&client->dev, 0);
+	if (!st->muxc) {
+		result = -ENOMEM;
+		goto out_unreg_device;
+	}
+	st->muxc->priv = indio_dev;
+	st->muxc->parent = client->adapter;
+
+	st->mux_adapter = i2c_add_mux_adapter(st->muxc,
 					      &client->dev,
 					      indio_dev,
 					      0, 0, 0,
