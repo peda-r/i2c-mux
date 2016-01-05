@@ -557,10 +557,9 @@ int cx231xx_i2c_unregister(struct cx231xx_i2c *bus)
  * cx231xx_i2c_mux_select()
  * switch i2c master number 1 between port1 and port3
  */
-static int cx231xx_i2c_mux_select(struct i2c_adapter *adap,
-			void *mux_priv, u32 chan_id)
+static int cx231xx_i2c_mux_select(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct cx231xx *dev = mux_priv;
+	struct cx231xx *dev = i2c_mux_priv(muxc);
 
 	return cx231xx_enable_i2c_port_3(dev, chan_id);
 }
@@ -572,6 +571,7 @@ int cx231xx_i2c_mux_create(struct cx231xx *dev)
 		return -ENOMEM;
 	dev->muxc->priv = dev;
 	dev->muxc->parent = &dev->i2c_bus[1].i2c_adap;
+	dev->muxc->select = cx231xx_i2c_mux_select;
 	return 0;
 }
 
@@ -582,13 +582,9 @@ int cx231xx_i2c_mux_register(struct cx231xx *dev, int mux_no)
 
 	dev->i2c_mux_adap[mux_no] = i2c_add_mux_adapter(dev->muxc,
 				mux_dev,
-				dev /* mux_priv */,
 				0,
 				mux_no /* chan_id */,
-				0 /* class */,
-				&cx231xx_i2c_mux_select,
-				NULL);
-
+				0 /* class */);
 	if (!dev->i2c_mux_adap[mux_no])
 		dev_warn(dev->dev,
 			 "i2c mux %d register FAILED\n", mux_no);

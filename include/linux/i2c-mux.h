@@ -29,7 +29,12 @@
 
 struct i2c_mux_core {
 	struct i2c_adapter *parent;
+	struct device *dev;
+
 	void *priv;
+
+	int (*select)(struct i2c_mux_core *, u32 chan_id);
+	int (*deselect)(struct i2c_mux_core *, u32 chan_id);
 };
 
 struct i2c_mux_core *i2c_mux_alloc(struct device *dev, int sizeof_priv);
@@ -46,13 +51,9 @@ static inline void *i2c_mux_priv(struct i2c_mux_core *muxc)
  * mux control.
  */
 struct i2c_adapter *i2c_add_mux_adapter(struct i2c_mux_core *muxc,
-				struct device *mux_dev,
-				void *mux_priv, u32 force_nr, u32 chan_id,
-				unsigned int class,
-				int (*select) (struct i2c_adapter *,
-					       void *mux_dev, u32 chan_id),
-				int (*deselect) (struct i2c_adapter *,
-						 void *mux_dev, u32 chan_id));
+					struct device *mux_dev,
+					u32 force_nr, u32 chan_id,
+					unsigned int class);
 
 void i2c_del_mux_adapter(struct i2c_adapter *adap);
 

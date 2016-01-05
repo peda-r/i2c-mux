@@ -63,18 +63,16 @@ static int i2c_mux_reg_set(const struct regmux *mux, unsigned int chan_id)
 	return 0;
 }
 
-static int i2c_mux_reg_select(struct i2c_adapter *adap, void *data,
-			      unsigned int chan)
+static int i2c_mux_reg_select(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct regmux *mux = data;
+	struct regmux *mux = i2c_mux_priv(muxc);
 
 	return i2c_mux_reg_set(mux, chan);
 }
 
-static int i2c_mux_reg_deselect(struct i2c_adapter *adap, void *data,
-				unsigned int chan)
+static int i2c_mux_reg_deselect(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct regmux *mux = data;
+	struct regmux *mux = i2c_mux_priv(muxc);
 
 	if (mux->data.idle_in_use)
 		return i2c_mux_reg_set(mux, mux->data.idle);
@@ -173,7 +171,6 @@ static int i2c_mux_reg_probe(struct platform_device *pdev)
 	struct regmux *mux;
 	struct i2c_adapter *parent;
 	struct resource *res;
-	int (*deselect)(struct i2c_adapter *, void *, u32);
 	unsigned int class;
 	int i, ret, nr;
 
@@ -225,19 +222,19 @@ static int i2c_mux_reg_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	muxc->select = i2c_mux_reg_select;
 	if (mux->data.idle_in_use)
-		deselect = i2c_mux_reg_deselect;
+		muxc->deselect = i2c_mux_reg_deselect;
 	else
-		deselect = NULL;
+		muxc->deselect = NULL;
 
 	for (i = 0; i < mux->data.n_values; i++) {
 		nr = mux->data.base_nr ? (mux->data.base_nr + i) : 0;
 		class = mux->data.classes ? mux->data.classes[i] : 0;
 
-		mux->adap[i] = i2c_add_mux_adapter(muxc, &pdev->dev, mux,
+		mux->adap[i] = i2c_add_mux_adapter(muxc, &pdev->dev,
 						   nr, mux->data.values[i],
-						   class, i2c_mux_reg_select,
-						   deselect);
+						   class);
 		if (!mux->adap[i]) {
 			ret = -ENODEV;
 			dev_err(&pdev->dev, "Failed to add adapter %d\n", i);

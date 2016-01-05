@@ -1251,9 +1251,9 @@ static void m88ds3103_release(struct dvb_frontend *fe)
 	i2c_unregister_device(client);
 }
 
-static int m88ds3103_select(struct i2c_adapter *adap, void *mux_priv, u32 chan)
+static int m88ds3103_select(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct m88ds3103_dev *dev = mux_priv;
+	struct m88ds3103_dev *dev = i2c_mux_priv(muxc);
 	struct i2c_client *client = dev->client;
 	int ret;
 	struct i2c_msg msg = {
@@ -1473,11 +1473,11 @@ static int m88ds3103_probe(struct i2c_client *client,
 	}
 	dev->muxc->priv = dev;
 	dev->muxc->parent = client->adapter;
+	dev->muxc->select = m88ds3103_select;
 
 	/* create mux i2c adapter for tuner */
 	dev->i2c_adapter = i2c_add_mux_adapter(dev->muxc, &client->dev,
-					       dev, 0, 0, 0, m88ds3103_select,
-					       NULL);
+					       0, 0, 0);
 	if (dev->i2c_adapter == NULL) {
 		ret = -ENOMEM;
 		goto err_kfree;

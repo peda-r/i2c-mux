@@ -73,6 +73,7 @@
 #define SELECT_DELAY_LONG	1000
 
 struct pca9541 {
+	struct i2c_client *client;
 	struct i2c_adapter *mux_adap;
 	unsigned long select_timeout;
 	unsigned long arb_timeout;
@@ -286,9 +287,10 @@ static int pca9541_arbitrate(struct i2c_client *client)
 	return 0;
 }
 
-static int pca9541_select_chan(struct i2c_adapter *adap, void *client, u32 chan)
+static int pca9541_select_chan(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct pca9541 *data = i2c_get_clientdata(client);
+	struct pca9541 *data = i2c_mux_priv(muxc);
+	struct i2c_client *client = data->client;
 	int ret;
 	unsigned long timeout = jiffies + ARB2_TIMEOUT;
 		/* give up after this time */
@@ -310,9 +312,11 @@ static int pca9541_select_chan(struct i2c_adapter *adap, void *client, u32 chan)
 	return -ETIMEDOUT;
 }
 
-static int pca9541_release_chan(struct i2c_adapter *adap,
-				void *client, u32 chan)
+static int pca9541_release_chan(struct i2c_mux_core *muxc, u32 chan)
 {
+	struct pca9541 *data = i2c_mux_priv(muxc);
+	struct i2c_client *client = data->client;
+
 	pca9541_release_bus(client);
 	return 0;
 }
@@ -339,7 +343,10 @@ static int pca9541_probe(struct i2c_client *client,
 
 	i2c_set_clientdata(client, muxc);
 
+	data->client = client;
 	muxc->parent = adap;
+	muxc->select = pca9541_select_chan;
+	muxc->deselect = pca9541_release_chan;
 
 	/*
 	 * I2C accesses are unprotected here.
@@ -354,10 +361,7 @@ static int pca9541_probe(struct i2c_client *client,
 	force = 0;
 	if (pdata)
 		force = pdata->modes[0].adap_id;
-	data->mux_adap = i2c_add_mux_adapter(muxc, &client->dev, client,
-					     force, 0, 0,
-					     pca9541_select_chan,
-					     pca9541_release_chan);
+	data->mux_adap = i2c_add_mux_adapter(muxc, &client->dev, force, 0, 0);
 
 	if (data->mux_adap == NULL) {
 		dev_err(&client->dev, "failed to register master selector\n");

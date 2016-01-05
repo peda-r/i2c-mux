@@ -866,9 +866,9 @@ err:
 	dev_dbg(&client->dev, "failed=%d\n", ret);
 }
 
-static int rtl2832_select(struct i2c_adapter *adap, void *mux_priv, u32 chan_id)
+static int rtl2832_select(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct rtl2832_dev *dev = mux_priv;
+	struct rtl2832_dev *dev = i2c_mux_priv(muxc);
 	struct i2c_client *client = dev->client;
 	int ret;
 
@@ -889,10 +889,9 @@ err:
 	return ret;
 }
 
-static int rtl2832_deselect(struct i2c_adapter *adap, void *mux_priv,
-			    u32 chan_id)
+static int rtl2832_deselect(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct rtl2832_dev *dev = mux_priv;
+	struct rtl2832_dev *dev = i2c_mux_priv(muxc);
 
 	schedule_delayed_work(&dev->i2c_gate_work, usecs_to_jiffies(100));
 	return 0;
@@ -1268,10 +1267,12 @@ static int rtl2832_probe(struct i2c_client *client,
 	}
 	dev->muxc->priv = dev;
 	dev->muxc->parent = i2c;
+	dev->muxc->select = rtl2832_select;
+	dev->muxc->deselect = rtl2832_deselect;
 
 	/* create muxed i2c adapter for demod tuner bus */
-	dev->i2c_adapter_tuner = i2c_add_mux_adapter(dev->muxc, &i2c->dev, dev,
-			0, 0, 0, rtl2832_select, rtl2832_deselect);
+	dev->i2c_adapter_tuner = i2c_add_mux_adapter(dev->muxc, &i2c->dev,
+						     0, 0, 0);
 	if (dev->i2c_adapter_tuner == NULL) {
 		ret = -ENODEV;
 		goto err_regmap_exit;

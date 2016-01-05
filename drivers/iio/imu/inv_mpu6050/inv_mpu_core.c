@@ -109,10 +109,9 @@ static int inv_mpu6050_write_reg_unlocked(struct inv_mpu6050_state *st,
 	return 0;
 }
 
-static int inv_mpu6050_select_bypass(struct i2c_adapter *adap, void *mux_priv,
-				     u32 chan_id)
+static int inv_mpu6050_select_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct iio_dev *indio_dev = mux_priv;
+	struct iio_dev *indio_dev = i2c_mux_priv(muxc);
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 	int ret = 0;
 
@@ -138,10 +137,9 @@ write_error:
 	return ret;
 }
 
-static int inv_mpu6050_deselect_bypass(struct i2c_adapter *adap,
-				       void *mux_priv, u32 chan_id)
+static int inv_mpu6050_deselect_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct iio_dev *indio_dev = mux_priv;
+	struct iio_dev *indio_dev = i2c_mux_priv(muxc);
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 
 	mutex_lock(&indio_dev->mlock);
@@ -849,13 +847,12 @@ static int inv_mpu_probe(struct i2c_client *client,
 	}
 	st->muxc->priv = indio_dev;
 	st->muxc->parent = client->adapter;
+	st->muxc->select = inv_mpu6050_select_bypass;
+	st->muxc->deselect = inv_mpu6050_deselect_bypass;
 
 	st->mux_adapter = i2c_add_mux_adapter(st->muxc,
 					      &client->dev,
-					      indio_dev,
-					      0, 0, 0,
-					      inv_mpu6050_select_bypass,
-					      inv_mpu6050_deselect_bypass);
+					      0, 0, 0);
 	if (!st->mux_adapter) {
 		result = -ENODEV;
 		goto out_unreg_device;

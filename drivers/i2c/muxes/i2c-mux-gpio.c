@@ -32,18 +32,18 @@ static void i2c_mux_gpio_set(const struct gpiomux *mux, unsigned val)
 					val & (1 << i));
 }
 
-static int i2c_mux_gpio_select(struct i2c_adapter *adap, void *data, u32 chan)
+static int i2c_mux_gpio_select(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct gpiomux *mux = data;
+	struct gpiomux *mux = i2c_mux_priv(muxc);
 
 	i2c_mux_gpio_set(mux, chan);
 
 	return 0;
 }
 
-static int i2c_mux_gpio_deselect(struct i2c_adapter *adap, void *data, u32 chan)
+static int i2c_mux_gpio_deselect(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct gpiomux *mux = data;
+	struct gpiomux *mux = i2c_mux_priv(muxc);
 
 	i2c_mux_gpio_set(mux, mux->data.idle);
 
@@ -138,7 +138,6 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	struct i2c_mux_core *muxc;
 	struct gpiomux *mux;
 	struct i2c_adapter *parent;
-	int (*deselect) (struct i2c_adapter *, void *, u32);
 	unsigned initial_state, gpio_base;
 	int i, ret;
 
@@ -180,6 +179,7 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 		return -EPROBE_DEFER;
 
 	muxc->parent = parent;
+	muxc->select = i2c_mux_gpio_select;
 	mux->gpio_base = gpio_base;
 
 	mux->adap = devm_kzalloc(&pdev->dev,
@@ -193,10 +193,10 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 
 	if (mux->data.idle != I2C_MUX_GPIO_NO_IDLE) {
 		initial_state = mux->data.idle;
-		deselect = i2c_mux_gpio_deselect;
+		muxc->deselect = i2c_mux_gpio_deselect;
 	} else {
 		initial_state = mux->data.values[0];
-		deselect = NULL;
+		muxc->deselect = NULL;
 	}
 
 	for (i = 0; i < mux->data.n_gpios; i++) {
@@ -222,9 +222,8 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 		u32 nr = mux->data.base_nr ? (mux->data.base_nr + i) : 0;
 		unsigned int class = mux->data.classes ? mux->data.classes[i] : 0;
 
-		mux->adap[i] = i2c_add_mux_adapter(muxc, &pdev->dev, mux, nr,
-						   mux->data.values[i], class,
-						   i2c_mux_gpio_select, deselect);
+		mux->adap[i] = i2c_add_mux_adapter(muxc, &pdev->dev, nr,
+						   mux->data.values[i], class);
 		if (!mux->adap[i]) {
 			ret = -ENODEV;
 			dev_err(&pdev->dev, "Failed to add adapter %d\n", i);
