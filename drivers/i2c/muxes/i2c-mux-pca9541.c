@@ -74,7 +74,6 @@
 
 struct pca9541 {
 	struct i2c_client *client;
-	struct i2c_adapter *mux_adap;
 	unsigned long select_timeout;
 	unsigned long arb_timeout;
 };
@@ -332,6 +331,7 @@ static int pca9541_probe(struct i2c_client *client,
 	struct i2c_mux_core *muxc;
 	struct pca9541 *data;
 	int force;
+	int ret;
 
 	if (!i2c_check_functionality(adap, I2C_FUNC_SMBUS_BYTE_DATA))
 		return -ENODEV;
@@ -361,11 +361,10 @@ static int pca9541_probe(struct i2c_client *client,
 	force = 0;
 	if (pdata)
 		force = pdata->modes[0].adap_id;
-	data->mux_adap = i2c_add_mux_adapter(muxc, &client->dev, force, 0, 0);
-
-	if (data->mux_adap == NULL) {
+	ret = i2c_add_mux_adapter(muxc, &client->dev, force, 0, 0);
+	if (ret) {
 		dev_err(&client->dev, "failed to register master selector\n");
-		return -ENODEV;
+		return ret;
 	}
 
 	dev_info(&client->dev, "registered master selector for I2C %s\n",
@@ -377,10 +376,8 @@ static int pca9541_probe(struct i2c_client *client,
 static int pca9541_remove(struct i2c_client *client)
 {
 	struct i2c_mux_core *muxc = i2c_get_clientdata(client);
-	struct pca9541 *data = i2c_mux_priv(muxc);
 
-	i2c_del_mux_adapter(data->mux_adap);
-
+	i2c_del_mux_adapters(muxc);
 	return 0;
 }
 

@@ -60,7 +60,6 @@ enum pca_type {
 
 struct pca954x {
 	enum pca_type type;
-	struct i2c_adapter *virt_adaps[PCA954X_MAX_NCHANS];
 
 	u8 last_chan;		/* last register value */
 	u8 deselect;
@@ -231,6 +230,10 @@ static int pca954x_probe(struct i2c_client *client,
 	data->type = id->driver_data;
 	data->last_chan = 0;		   /* force the first selection */
 
+	ret = i2c_mux_reserve_adapters(muxc, chips[data->type].nchans);
+	if (ret)
+		return ret;
+
 	idle_disconnect_dt = of_node &&
 		of_property_read_bool(of_node, "i2c-mux-idle-disconnect");
 
@@ -253,12 +256,10 @@ static int pca954x_probe(struct i2c_client *client,
 					   || idle_disconnect_dt) << num;
 		}
 
-		data->virt_adaps[num] =
-			i2c_add_mux_adapter(muxc, &client->dev,
-					    force, num, class);
+		ret = i2c_add_mux_adapter(muxc, &client->dev,
+					  force, num, class);
 
-		if (data->virt_adaps[num] == NULL) {
-			ret = -ENODEV;
+		if (ret) {
 			dev_err(&client->dev,
 				"failed to register multiplexed adapter"
 				" %d as bus %d\n", num, force);
@@ -274,24 +275,15 @@ static int pca954x_probe(struct i2c_client *client,
 	return 0;
 
 virt_reg_failed:
-	for (num--; num >= 0; num--)
-		i2c_del_mux_adapter(data->virt_adaps[num]);
+	i2c_del_mux_adapters(muxc);
 	return ret;
 }
 
 static int pca954x_remove(struct i2c_client *client)
 {
 	struct i2c_mux_core *muxc = i2c_get_clientdata(client);
-	struct pca954x *data = i2c_mux_priv(muxc);
-	const struct chip_desc *chip = &chips[data->type];
-	int i;
 
-	for (i = 0; i < chip->nchans; ++i)
-		if (data->virt_adaps[i]) {
-			i2c_del_mux_adapter(data->virt_adaps[i]);
-			data->virt_adaps[i] = NULL;
-		}
-
+	i2c_del_mux_adapters(muxc);
 	return 0;
 }
 

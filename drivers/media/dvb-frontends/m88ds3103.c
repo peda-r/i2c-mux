@@ -1374,7 +1374,7 @@ static struct i2c_adapter *m88ds3103_get_i2c_adapter(struct i2c_client *client)
 
 	dev_dbg(&client->dev, "\n");
 
-	return dev->i2c_adapter;
+	return dev->muxc->adapter[0];
 }
 
 static int m88ds3103_probe(struct i2c_client *client,
@@ -1476,12 +1476,9 @@ static int m88ds3103_probe(struct i2c_client *client,
 	dev->muxc->select = m88ds3103_select;
 
 	/* create mux i2c adapter for tuner */
-	dev->i2c_adapter = i2c_add_mux_adapter(dev->muxc, &client->dev,
-					       0, 0, 0);
-	if (dev->i2c_adapter == NULL) {
-		ret = -ENOMEM;
+	ret = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
+	if (ret)
 		goto err_kfree;
-	}
 
 	/* create dvb_frontend */
 	memcpy(&dev->fe.ops, &m88ds3103_ops, sizeof(struct dvb_frontend_ops));
@@ -1510,7 +1507,7 @@ static int m88ds3103_remove(struct i2c_client *client)
 
 	dev_dbg(&client->dev, "\n");
 
-	i2c_del_mux_adapter(dev->i2c_adapter);
+	i2c_del_mux_adapters(dev->muxc);
 
 	kfree(dev);
 	return 0;

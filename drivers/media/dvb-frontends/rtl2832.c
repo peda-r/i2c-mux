@@ -1074,7 +1074,7 @@ static struct i2c_adapter *rtl2832_get_i2c_adapter(struct i2c_client *client)
 	struct rtl2832_dev *dev = i2c_get_clientdata(client);
 
 	dev_dbg(&client->dev, "\n");
-	return dev->i2c_adapter_tuner;
+	return dev->muxc->adapter[0];
 }
 
 static int rtl2832_enable_slave_ts(struct i2c_client *client)
@@ -1271,12 +1271,9 @@ static int rtl2832_probe(struct i2c_client *client,
 	dev->muxc->deselect = rtl2832_deselect;
 
 	/* create muxed i2c adapter for demod tuner bus */
-	dev->i2c_adapter_tuner = i2c_add_mux_adapter(dev->muxc, &i2c->dev,
-						     0, 0, 0);
-	if (dev->i2c_adapter_tuner == NULL) {
-		ret = -ENODEV;
+	ret = i2c_add_mux_adapter(dev->muxc, &i2c->dev, 0, 0, 0);
+	if (ret)
 		goto err_regmap_exit;
-	}
 
 	/* create dvb_frontend */
 	memcpy(&dev->fe.ops, &rtl2832_ops, sizeof(struct dvb_frontend_ops));
@@ -1311,7 +1308,7 @@ static int rtl2832_remove(struct i2c_client *client)
 
 	cancel_delayed_work_sync(&dev->i2c_gate_work);
 
-	i2c_del_mux_adapter(dev->i2c_adapter_tuner);
+	i2c_del_mux_adapters(dev->muxc);
 
 	regmap_exit(dev->regmap);
 

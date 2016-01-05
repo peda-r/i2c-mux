@@ -719,16 +719,14 @@ static int si2168_probe(struct i2c_client *client,
 	dev->muxc->deselect = si2168_deselect;
 
 	/* create mux i2c adapter for tuner */
-	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
-	if (dev->adapter == NULL) {
-		ret = -ENODEV;
+	ret = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
+	if (ret)
 		goto err_kfree;
-	}
 
 	/* create dvb_frontend */
 	memcpy(&dev->fe.ops, &si2168_ops, sizeof(struct dvb_frontend_ops));
 	dev->fe.demodulator_priv = client;
-	*config->i2c_adapter = dev->adapter;
+	*config->i2c_adapter = dev->muxc->adapter[0];
 	*config->fe = &dev->fe;
 	dev->ts_mode = config->ts_mode;
 	dev->ts_clock_inv = config->ts_clock_inv;
@@ -752,7 +750,7 @@ static int si2168_remove(struct i2c_client *client)
 
 	dev_dbg(&client->dev, "\n");
 
-	i2c_del_mux_adapter(dev->adapter);
+	i2c_del_mux_adapters(dev->muxc);
 
 	dev->fe.ops.release = NULL;
 	dev->fe.demodulator_priv = NULL;

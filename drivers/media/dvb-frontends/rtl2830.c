@@ -712,7 +712,7 @@ static struct i2c_adapter *rtl2830_get_i2c_adapter(struct i2c_client *client)
 
 	dev_dbg(&client->dev, "\n");
 
-	return dev->adapter;
+	return dev->muxc->adapter[0];
 }
 
 /*
@@ -874,11 +874,9 @@ static int rtl2830_probe(struct i2c_client *client,
 	dev->muxc->select = rtl2830_select;
 
 	/* create muxed i2c adapter for tuner */
-	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
-	if (dev->adapter == NULL) {
-		ret = -ENODEV;
+	ret = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
+	if (ret)
 		goto err_regmap_exit;
-	}
 
 	/* create dvb frontend */
 	memcpy(&dev->fe.ops, &rtl2830_ops, sizeof(dev->fe.ops));
@@ -908,7 +906,7 @@ static int rtl2830_remove(struct i2c_client *client)
 
 	dev_dbg(&client->dev, "\n");
 
-	i2c_del_mux_adapter(dev->adapter);
+	i2c_del_mux_adapters(dev->muxc);
 	regmap_exit(dev->regmap);
 	kfree(dev);
 

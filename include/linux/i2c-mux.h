@@ -29,6 +29,9 @@
 
 struct i2c_mux_core {
 	struct i2c_adapter *parent;
+	struct i2c_adapter **adapter;
+	int adapters;
+	int max_adapters;
 	struct device *dev;
 
 	void *priv;
@@ -44,18 +47,20 @@ static inline void *i2c_mux_priv(struct i2c_mux_core *muxc)
 	return muxc->priv;
 }
 
+int i2c_mux_reserve_adapters(struct i2c_mux_core *muxc, int adapters);
+
 /*
  * Called to create a i2c bus on a multiplexed bus segment.
  * The mux_dev and chan_id parameters are passed to the select
  * and deselect callback functions to perform hardware-specific
  * mux control.
  */
-struct i2c_adapter *i2c_add_mux_adapter(struct i2c_mux_core *muxc,
-					struct device *mux_dev,
-					u32 force_nr, u32 chan_id,
-					unsigned int class);
+int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
+			struct device *mux_dev,
+			u32 force_nr, u32 chan_id,
+			unsigned int class);
 
-void i2c_del_mux_adapter(struct i2c_adapter *adap);
+void i2c_del_mux_adapters(struct i2c_mux_core *muxc);
 
 #endif /* __KERNEL__ */
 

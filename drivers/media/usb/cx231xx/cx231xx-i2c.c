@@ -579,23 +579,23 @@ int cx231xx_i2c_mux_register(struct cx231xx *dev, int mux_no)
 {
 	/* what is the correct mux_dev? */
 	struct device *mux_dev = dev->dev;
+	int rc;
 
-	dev->i2c_mux_adap[mux_no] = i2c_add_mux_adapter(dev->muxc,
-				mux_dev,
-				0,
-				mux_no /* chan_id */,
-				0 /* class */);
-	if (!dev->i2c_mux_adap[mux_no])
+	rc = i2c_add_mux_adapter(dev->muxc,
+				 mux_dev,
+				 0,
+				 mux_no /* chan_id */,
+				 0 /* class */);
+	if (rc)
 		dev_warn(dev->dev,
 			 "i2c mux %d register FAILED\n", mux_no);
 
-	return 0;
+	return rc;
 }
 
-void cx231xx_i2c_mux_unregister(struct cx231xx *dev, int mux_no)
+void cx231xx_i2c_mux_unregister(struct cx231xx *dev)
 {
-	i2c_del_mux_adapter(dev->i2c_mux_adap[mux_no]);
-	dev->i2c_mux_adap[mux_no] = NULL;
+	i2c_del_mux_adapters(dev->muxc);
 }
 
 struct i2c_adapter *cx231xx_get_i2c_adap(struct cx231xx *dev, int i2c_port)
@@ -608,9 +608,9 @@ struct i2c_adapter *cx231xx_get_i2c_adap(struct cx231xx *dev, int i2c_port)
 	case I2C_2:
 		return &dev->i2c_bus[2].i2c_adap;
 	case I2C_1_MUX_1:
-		return dev->i2c_mux_adap[0];
+		return dev->muxc->adapter[0];
 	case I2C_1_MUX_3:
-		return dev->i2c_mux_adap[1];
+		return dev->muxc->adapter[1];
 	default:
 		return NULL;
 	}
