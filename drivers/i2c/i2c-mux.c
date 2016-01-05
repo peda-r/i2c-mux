@@ -32,7 +32,6 @@ struct i2c_mux_priv {
 	struct i2c_adapter adap;
 	struct i2c_algorithm algo;
 	struct i2c_mux_core *muxc;
-	struct device *mux_dev;
 	u32 chan_id;
 };
 
@@ -139,7 +138,6 @@ struct i2c_mux_core *i2c_mux_alloc(struct device *dev, int sizeof_priv)
 EXPORT_SYMBOL_GPL(i2c_mux_alloc);
 
 int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
-			struct device *mux_dev,
 			u32 force_nr, u32 chan_id,
 			unsigned int class)
 {
@@ -164,7 +162,6 @@ int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
 
 	/* Set up private adapter data */
 	priv->muxc = muxc;
-	priv->mux_dev = mux_dev;
 	priv->chan_id = chan_id;
 
 	/* Need to do algo dynamically because we don't know ahead
@@ -199,11 +196,11 @@ int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
 	 * Try to populate the mux adapter's of_node, expands to
 	 * nothing if !CONFIG_OF.
 	 */
-	if (mux_dev->of_node) {
+	if (muxc->dev->of_node) {
 		struct device_node *child;
 		u32 reg;
 
-		for_each_child_of_node(mux_dev->of_node, child) {
+		for_each_child_of_node(muxc->dev->of_node, child) {
 			ret = of_property_read_u32(child, "reg", &reg);
 			if (ret)
 				continue;
@@ -217,8 +214,9 @@ int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
 	/*
 	 * Associate the mux channel with an ACPI node.
 	 */
-	if (has_acpi_companion(mux_dev))
-		acpi_preset_companion(&priv->adap.dev, ACPI_COMPANION(mux_dev),
+	if (has_acpi_companion(muxc->dev))
+		acpi_preset_companion(&priv->adap.dev,
+				      ACPI_COMPANION(muxc->dev),
 				      chan_id);
 
 	if (force_nr) {
@@ -235,12 +233,14 @@ int i2c_add_mux_adapter(struct i2c_mux_core *muxc,
 		return ret;
 	}
 
-	WARN(sysfs_create_link(&priv->adap.dev.kobj, &mux_dev->kobj, "mux_device"),
-			       "can't create symlink to mux device\n");
+	WARN(sysfs_create_link(&priv->adap.dev.kobj, &muxc->dev->kobj,
+			       "mux_device"),
+	     "can't create symlink to mux device\n");
 
 	snprintf(symlink_name, sizeof(symlink_name), "channel-%u", chan_id);
-	WARN(sysfs_create_link(&mux_dev->kobj, &priv->adap.dev.kobj, symlink_name),
-			       "can't create symlink for channel %u\n", chan_id);
+	WARN(sysfs_create_link(&muxc->dev->kobj, &priv->adap.dev.kobj,
+			       symlink_name),
+	     "can't create symlink for channel %u\n", chan_id);
 	dev_info(&parent->dev, "Added multiplexed i2c bus %d\n",
 		 i2c_adapter_id(&priv->adap));
 
@@ -261,7 +261,7 @@ void i2c_del_mux_adapters(struct i2c_mux_core *muxc)
 
 		snprintf(symlink_name, sizeof(symlink_name),
 			 "channel-%u", priv->chan_id);
-		sysfs_remove_link(&priv->mux_dev->kobj, symlink_name);
+		sysfs_remove_link(&muxc->dev->kobj, symlink_name);
 
 		sysfs_remove_link(&priv->adap.dev.kobj, "mux_device");
 		i2c_del_adapter(adap);

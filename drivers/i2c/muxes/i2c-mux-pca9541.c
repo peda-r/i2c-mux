@@ -361,7 +361,7 @@ static int pca9541_probe(struct i2c_client *client,
 	force = 0;
 	if (pdata)
 		force = pdata->modes[0].adap_id;
-	ret = i2c_add_mux_adapter(muxc, &client->dev, force, 0, 0);
+	ret = i2c_add_mux_adapter(muxc, force, 0, 0);
 	if (ret) {
 		dev_err(&client->dev, "failed to register master selector\n");
 		return ret;

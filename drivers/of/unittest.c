@@ -1722,7 +1722,7 @@ static int unittest_i2c_mux_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 	for (i = 0; i < nchans; i++) {
-		ret = i2c_add_mux_adapter(muxc, dev, 0, i, 0);
+		ret = i2c_add_mux_adapter(muxc, 0, i, 0);
 		if (ret) {
 			dev_err(dev, "Failed to register mux #%d\n", i);
 			i2c_del_mux_adapters(muxc);

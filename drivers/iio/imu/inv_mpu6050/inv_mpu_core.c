@@ -849,7 +849,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	st->muxc->select = inv_mpu6050_select_bypass;
 	st->muxc->deselect = inv_mpu6050_deselect_bypass;
 
-	result = i2c_add_mux_adapter(st->muxc, &client->dev, 0, 0, 0);
+	result = i2c_add_mux_adapter(st->muxc, 0, 0, 0);
 	if (result)
 		goto out_unreg_device;
 
