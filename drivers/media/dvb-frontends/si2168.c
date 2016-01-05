@@ -615,9 +615,9 @@ static int si2168_get_tune_settings(struct dvb_frontend *fe,
  * We must use unlocked I2C I/O because I2C adapter lock is already taken
  * by the caller (usually tuner driver).
  */
-static int si2168_select(struct i2c_adapter *adap, void *mux_priv, u32 chan)
+static int si2168_select(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct i2c_client *client = mux_priv;
+	struct i2c_client *client = i2c_mux_priv(muxc);
 	int ret;
 	struct si2168_cmd cmd;
 
@@ -635,9 +635,9 @@ err:
 	return ret;
 }
 
-static int si2168_deselect(struct i2c_adapter *adap, void *mux_priv, u32 chan)
+static int si2168_deselect(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct i2c_client *client = mux_priv;
+	struct i2c_client *client = i2c_mux_priv(muxc);
 	int ret;
 	struct si2168_cmd cmd;
 
@@ -715,10 +715,11 @@ static int si2168_probe(struct i2c_client *client,
 	}
 	dev->muxc->priv = client;
 	dev->muxc->parent = client->adapter;
+	dev->muxc->select = si2168_select;
+	dev->muxc->deselect = si2168_deselect;
 
 	/* create mux i2c adapter for tuner */
-	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev,
-			client, 0, 0, 0, si2168_select, si2168_deselect);
+	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
 	if (dev->adapter == NULL) {
 		ret = -ENODEV;
 		goto err_kfree;

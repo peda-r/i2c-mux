@@ -1682,8 +1682,7 @@ struct unittest_i2c_mux_data {
 	struct i2c_adapter *adap[];
 };
 
-static int unittest_i2c_mux_select_chan(struct i2c_adapter *adap,
-			       void *client, u32 chan)
+static int unittest_i2c_mux_select_chan(struct i2c_mux_core *muxc, u32 chan)
 {
 	return 0;
 }
@@ -1725,11 +1724,11 @@ static int unittest_i2c_mux_probe(struct i2c_client *client,
 	if (!muxc)
 		return -ENOMEM;
 	muxc->parent = adap;
+	muxc->select = unittest_i2c_mux_select_chan;
 	stm = i2c_mux_priv(muxc);
 	stm->nchans = nchans;
 	for (i = 0; i < nchans; i++) {
-		stm->adap[i] = i2c_add_mux_adapter(muxc, dev, client,
-				0, i, 0, unittest_i2c_mux_select_chan, NULL);
+		stm->adap[i] = i2c_add_mux_adapter(muxc, dev, 0, i, 0);
 		if (!stm->adap[i]) {
 			dev_err(dev, "Failed to register mux #%d\n", i);
 			for (i--; i >= 0; i--)

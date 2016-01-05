@@ -677,9 +677,9 @@ err:
  * adapter lock is already taken by tuner driver.
  * Gate is closed automatically after single I2C transfer.
  */
-static int rtl2830_select(struct i2c_adapter *adap, void *mux_priv, u32 chan_id)
+static int rtl2830_select(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct i2c_client *client = mux_priv;
+	struct i2c_client *client = i2c_mux_priv(muxc);
 	struct rtl2830_dev *dev = i2c_get_clientdata(client);
 	int ret;
 
@@ -871,10 +871,10 @@ static int rtl2830_probe(struct i2c_client *client,
 	}
 	dev->muxc->priv = client;
 	dev->muxc->parent = client->adapter;
+	dev->muxc->select = rtl2830_select;
 
 	/* create muxed i2c adapter for tuner */
-	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev,
-			client, 0, 0, 0, rtl2830_select, NULL);
+	dev->adapter = i2c_add_mux_adapter(dev->muxc, &client->dev, 0, 0, 0);
 	if (dev->adapter == NULL) {
 		ret = -ENODEV;
 		goto err_regmap_exit;

@@ -34,18 +34,16 @@ struct i2c_mux_pinctrl {
 	struct i2c_adapter **busses;
 };
 
-static int i2c_mux_pinctrl_select(struct i2c_adapter *adap, void *data,
-				  u32 chan)
+static int i2c_mux_pinctrl_select(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct i2c_mux_pinctrl *mux = data;
+	struct i2c_mux_pinctrl *mux = i2c_mux_priv(muxc);
 
 	return pinctrl_select_state(mux->pinctrl, mux->states[chan]);
 }
 
-static int i2c_mux_pinctrl_deselect(struct i2c_adapter *adap, void *data,
-				    u32 chan)
+static int i2c_mux_pinctrl_deselect(struct i2c_mux_core *muxc, u32 chan)
 {
-	struct i2c_mux_pinctrl *mux = data;
+	struct i2c_mux_pinctrl *mux = i2c_mux_priv(muxc);
 
 	return pinctrl_select_state(mux->pinctrl, mux->state_idle);
 }
@@ -132,7 +130,6 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 {
 	struct i2c_mux_core *muxc;
 	struct i2c_mux_pinctrl *mux;
-	int (*deselect)(struct i2c_adapter *, void *, u32);
 	int i, ret;
 
 	muxc = i2c_mux_alloc(&pdev->dev, sizeof(*mux));
@@ -203,10 +200,11 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 			goto err;
 		}
 
-		deselect = i2c_mux_pinctrl_deselect;
+		muxc->deselect = i2c_mux_pinctrl_deselect;
 	} else {
-		deselect = NULL;
+		muxc->deselect = NULL;
 	}
+	muxc->select = i2c_mux_pinctrl_select;
 
 	muxc->parent = i2c_get_adapter(mux->pdata->parent_bus_num);
 	if (!muxc->parent) {
@@ -221,9 +219,7 @@ static int i2c_mux_pinctrl_probe(struct platform_device *pdev)
 				(mux->pdata->base_bus_num + i) : 0;
 
 		mux->busses[i] = i2c_add_mux_adapter(muxc, &pdev->dev,
-						     mux, bus, i, 0,
-						     i2c_mux_pinctrl_select,
-						     deselect);
+						     bus, i, 0);
 		if (!mux->busses[i]) {
 			ret = -ENODEV;
 			dev_err(&pdev->dev, "Failed to add adapter %d\n", i);
