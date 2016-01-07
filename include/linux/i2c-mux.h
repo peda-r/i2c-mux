@@ -33,6 +33,8 @@ struct i2c_mux_core {
 	int adapters;
 	int max_adapters;
 	struct device *dev;
+	struct rt_mutex bus_lock;
+	bool i2c_controlled;
 
 	void *priv;
 
@@ -46,6 +48,8 @@ static inline void *i2c_mux_priv(struct i2c_mux_core *muxc)
 {
 	return muxc->priv;
 }
+
+struct i2c_adapter *i2c_root_adapter(struct device *dev);
 
 int i2c_mux_reserve_adapters(struct i2c_mux_core *muxc, int adapters);
 

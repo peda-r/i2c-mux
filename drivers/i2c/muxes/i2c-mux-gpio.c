@@ -15,6 +15,7 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
+#include "../../gpio/gpiolib.h"
 #include <linux/of_gpio.h>
 
 struct gpiomux {
@@ -137,6 +138,7 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	struct i2c_mux_core *muxc;
 	struct gpiomux *mux;
 	struct i2c_adapter *parent;
+	struct i2c_adapter *root;
 	unsigned initial_state, gpio_base;
 	int i, ret;
 
@@ -177,6 +179,9 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	if (!parent)
 		return -EPROBE_DEFER;
 
+	root = i2c_root_adapter(&parent->dev);
+
+	muxc->i2c_controlled = true;
 	muxc->parent = parent;
 	muxc->select = i2c_mux_gpio_select;
 	mux->gpio_base = gpio_base;
@@ -194,6 +199,9 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < mux->data.n_gpios; i++) {
+		struct device *gpio_dev;
+		struct gpio_desc *gpio_desc;
+
 		ret = gpio_request(gpio_base + mux->data.gpios[i], "i2c-mux-gpio");
 		if (ret) {
 			dev_err(&pdev->dev, "Failed to request GPIO %d\n",
@@ -210,7 +218,18 @@ static int i2c_mux_gpio_probe(struct platform_device *pdev)
 			i++;	/* gpio_request above succeeded, so must free */
 			goto err_request_gpio;
 		}
+
+		if (!muxc->i2c_controlled)
+			continue;
+
+		gpio_desc = gpio_to_desc(gpio_base + mux->data.gpios[i]);
+		gpio_dev = gpio_desc->chip->dev;
+		muxc->i2c_controlled = i2c_root_adapter(gpio_dev) == root;
 	}
+
+	if (muxc->i2c_controlled)
+		dev_info(&pdev->dev,
+			"lock select-transfer-deselect individually\n");
 
 	for (i = 0; i < mux->data.n_values; i++) {
 		u32 nr = mux->data.base_nr ? (mux->data.base_nr + i) : 0;
