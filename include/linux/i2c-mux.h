@@ -27,6 +27,32 @@
 
 #ifdef __KERNEL__
 
+struct i2c_mux_core {
+	struct i2c_adapter *parent;
+	struct i2c_adapter **adapter;
+	int adapters;
+	int max_adapters;
+	struct device *dev;
+
+	void *priv;
+
+	int (*select)(struct i2c_mux_core *, u32 chan_id);
+	int (*deselect)(struct i2c_mux_core *, u32 chan_id);
+};
+
+struct i2c_mux_core *i2c_mux_alloc(struct i2c_adapter *parent,
+				   struct device *dev, int sizeof_priv,
+				   u32 flags,
+				   int (*select)(struct i2c_mux_core *, u32),
+				   int (*deselect)(struct i2c_mux_core *, u32));
+
+static inline void *i2c_mux_priv(struct i2c_mux_core *muxc)
+{
+	return muxc->priv;
+}
+
+int i2c_mux_reserve_adapters(struct i2c_mux_core *muxc, int adapters);
+
 /*
  * Called to create a i2c bus on a multiplexed bus segment.
  * The mux_dev and chan_id parameters are passed to the select
@@ -41,8 +67,29 @@ struct i2c_adapter *i2c_add_mux_adapter(struct i2c_adapter *parent,
 					       void *mux_dev, u32 chan_id),
 				int (*deselect) (struct i2c_adapter *,
 						 void *mux_dev, u32 chan_id));
+/*
+ * Called to create a i2c bus on a multiplexed bus segment.
+ * The chan_id parameter is passed to the select and deselect
+ * callback functions to perform hardware-specific mux control.
+ */
+int i2c_mux_add_adapter(struct i2c_mux_core *muxc,
+			u32 force_nr, u32 chan_id,
+			unsigned int class);
+
+/*
+ * Allocate an i2c_mux_core and add one adapter with one call.
+ */
+struct i2c_mux_core *i2c_mux_one_adapter(struct i2c_adapter *parent,
+					 struct device *dev, int sizeof_priv,
+					 u32 flags, u32 force_nr,
+					 u32 chan_id, unsigned int class,
+					 int (*select)(struct i2c_mux_core *,
+						       u32),
+					 int (*deselect)(struct i2c_mux_core *,
+							 u32));
 
 void i2c_del_mux_adapter(struct i2c_adapter *adap);
+void i2c_mux_del_adapters(struct i2c_mux_core *muxc);
 
 #endif /* __KERNEL__ */
 
