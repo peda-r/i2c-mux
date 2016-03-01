@@ -23,7 +23,6 @@
 #include <linux/kfifo.h>
 #include <linux/spinlock.h>
 #include <linux/iio/iio.h>
-#include <linux/i2c-mux.h>
 #include <linux/acpi.h>
 #include "inv_mpu_iio.h"
 
@@ -109,10 +108,9 @@ static int inv_mpu6050_write_reg_unlocked(struct inv_mpu6050_state *st,
 	return 0;
 }
 
-static int inv_mpu6050_select_bypass(struct i2c_adapter *adap, void *mux_priv,
-				     u32 chan_id)
+static int inv_mpu6050_select_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct iio_dev *indio_dev = mux_priv;
+	struct iio_dev *indio_dev = i2c_mux_priv(muxc);
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 	int ret = 0;
 
@@ -138,10 +136,9 @@ write_error:
 	return ret;
 }
 
-static int inv_mpu6050_deselect_bypass(struct i2c_adapter *adap,
-				       void *mux_priv, u32 chan_id)
+static int inv_mpu6050_deselect_bypass(struct i2c_mux_core *muxc, u32 chan_id)
 {
-	struct iio_dev *indio_dev = mux_priv;
+	struct iio_dev *indio_dev = i2c_mux_priv(muxc);
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 
 	mutex_lock(&indio_dev->mlock);
@@ -842,16 +839,15 @@ static int inv_mpu_probe(struct i2c_client *client,
 		goto out_remove_trigger;
 	}
 
-	st->mux_adapter = i2c_add_mux_adapter(client->adapter,
-					      &client->dev,
-					      indio_dev,
-					      0, 0, 0,
-					      inv_mpu6050_select_bypass,
-					      inv_mpu6050_deselect_bypass);
-	if (!st->mux_adapter) {
-		result = -ENODEV;
+	st->muxc = i2c_mux_one_adapter(client->adapter, &client->dev, 0, 0,
+				       0, 0, 0,
+				       inv_mpu6050_select_bypass,
+				       inv_mpu6050_deselect_bypass);
+	if (IS_ERR(st->muxc)) {
+		result = PTR_ERR(st->muxc);
 		goto out_unreg_device;
 	}
+	st->muxc->priv = indio_dev;
 
 	result = inv_mpu_acpi_create_mux_client(st);
 	if (result)
@@ -860,7 +856,7 @@ static int inv_mpu_probe(struct i2c_client *client,
 	return 0;
 
 out_del_mux:
-	i2c_del_mux_adapter(st->mux_adapter);
+	i2c_mux_del_adapters(st->muxc);
 out_unreg_device:
 	iio_device_unregister(indio_dev);
 out_remove_trigger:
@@ -876,7 +872,7 @@ static int inv_mpu_remove(struct i2c_client *client)
 	struct inv_mpu6050_state *st = iio_priv(indio_dev);
 
 	inv_mpu_acpi_delete_mux_client(st);
-	i2c_del_mux_adapter(st->mux_adapter);
+	i2c_mux_del_adapters(st->muxc);
 	iio_device_unregister(indio_dev);
 	inv_mpu6050_remove_trigger(st);
 	iio_triggered_buffer_cleanup(indio_dev);
