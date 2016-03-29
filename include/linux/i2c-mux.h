@@ -30,6 +30,7 @@
 struct i2c_mux_core {
 	struct i2c_adapter *parent;
 	struct device *dev;
+	bool mux_locked;
 
 	void *priv;
 
@@ -47,10 +48,15 @@ struct i2c_mux_core *i2c_mux_alloc(struct i2c_adapter *parent,
 				   int (*select)(struct i2c_mux_core *, u32),
 				   int (*deselect)(struct i2c_mux_core *, u32));
 
+/* flags for i2c_mux_alloc */
+#define I2C_MUX_LOCKED (1<<0)
+
 static inline void *i2c_mux_priv(struct i2c_mux_core *muxc)
 {
 	return muxc->priv;
 }
+
+struct i2c_adapter *i2c_root_adapter(struct device *dev);
 
 /*
  * Called to create an i2c bus on a multiplexed bus segment.
